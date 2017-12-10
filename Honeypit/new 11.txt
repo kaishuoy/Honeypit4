@@ -1,0 +1,41 @@
+test
+1. SANS Institute. LaBrea  A New Approach to Securing Our Networks.
+https://www.sans.org/reading-room/whitepapers/attacking/labrea-approach-securing-
+networks-36
+2. Kate Pearce. Gaslighting with Honeypits and Mirages.
+Australian Cyber Security Centre conference 2017.
+3. Symantec. Internet Security Threat Report 2014.
+http://www.symantec.com/content/en/us/enterprise/other_resources/b-istr_main_report_
+v19_21291018.en-us.pdf
+4. Christian Seifert, Peter Komisarczuk, Ian Welch.
+True Positive Cost Curve: A Cost-Based Evaluation Method for High-Interaction Client
+Honeypots
+5. Christian Seifert, Peter Komisarczuk, Ian Welch.
+HoneyC  The Low-Interaction Client Honeypot
+6. Michael Muter, Felix Freiling, Thorsten Holz, Jeanna Matthews.
+A Generic Toolkit for Converting Web Applications Into High-Interaction Honeypots.
+http://www.foo.be/cours/dess-20072008/papers/honeypot-raid2007.pdf
+7. Sandro Gauci, Wendel G. Henrique.
+Web Application Firewalls: What the vendors do NOT want you to know.
+https://www.owasp.org/images/0/0a/Appseceu09-Web_Application_Firewalls.pdf
+8. Dennis Appelt, Cu D. Nguyen, Lionel Briand.
+Behind an Application Firewall, Are We Safe from SQL Injection Attacks?
+9. Andreas Karakannas, George Thessalonikefs.
+Web Application Firewalls Evaluation and Analysis
+10. OWASP. OWASP Top 10 Application Security Risks - 2017.
+https://www.owasp.org/index.php/Top_10_2017-Top_10}
+11. OWASP. Improper Error Handling. 
+https://www.owasp.org/index.php/Improper_Error_Handling
+12. OWASP. Testing for SQL injection.
+https://www.owasp.org/index.php/Testing_for_SQL_Injection_(OTG-INPVAL-005)
+13. OWASP. Testing for Cross Site Scripting.
+https://www.owasp.org/index.php/Testing_for_Cross_site_scripting
+14. OWASP. Testing for directory traversal.
+https://www.owasp.org/index.php/Testing_Directory_traversal/file_include_(OTG-AUTHZ-001)
+15. OWASP. Testing for Cross Site Scripting - Black Box testing and example.
+https://www.owasp.org/index.php/Testing_for_Cross_site_scripting#Black_Box_testing_and_example
+16. Holly Graceful. Path Traversal Cheat Sheet: Windows
+https://www.gracefulsecurity.com/path-traversal-cheat-sheet-windows/
+17. Holly Graceful. Path Traversal Cheat Sheet: Linux
+https://www.gracefulsecurity.com/path-traversal-cheat-sheet-linux/
+18.
