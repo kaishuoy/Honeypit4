@@ -1,47 +1,229 @@
 package main;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.URL;
+import java.time.Instant;
+import java.net.MalformedURLException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 /**
- * Path traversal attack rule
+ * Implementation of Honeypit using Java Servlet class
  * 
- * https://en.wikipedia.org/wiki/Directory_traversal_attack
- * https://www.owasp.org/index.php/Testing_Directory_traversal/file_include_(OTG-AUTHZ-001)
- * https://www.owasp.org/images/1/19/OTGv4.pdf
- * 
- * @author Kai
- *
+ * The honeypit is not vulnerable to common web based attacks, nor
+ * does it contain useful data. Attackers attempting to break into
+ * the honeypit will see apparent weaknesses which they will attempt
+ * to exploit
  */
-public class PT2Rule extends Rule {
+@WebServlet("/HP")
+public class HP extends HttpServlet {
+	
+	private static final long serialVersionUID = 1L;
+	
+	// global tracker for whether or not an attack attemp has happened
+	private static boolean detected;
+	private List<Rule> rules = new ArrayList<Rule>();
+	// defines what rules should be activated in what circumstance
+	private boolean[][] activation;
 
-	String[] PT = new String[] { "../", "..", "..\\" };
+	public HP() {
+		super();
+		// add more rules here as required
+		rules.add(new PTRule());
+		rules.add(new PT2Rule());
+		rules.add(new XSSRule());
+		rules.add(new SQLIRule());
+		activate();
+	}
 
-	String passwd = "root:!:0:0::/:/usr/bin/ksh\n" + "daemon:!:1:1::/etc:\n" + "bin:!:2:2::/bin:\n"
-			+ "sys:!:3:3::/usr/sys: \n" + "adm:!:4:4::/var/adm:\n" + "uucp:!:5:5::/usr/lib/uucp: \n"
-			+ "guest:!:100:100::/home/guest:\n" + "nobody:!:4294967294:4294967294::/:\n" + "lpd:!:9:4294967294::/:\n"
-			+ "lp:*:11:11::/var/spool/lp:/bin/false \n" + "invscout:*:200:1::/var/adm/invscout:/usr/bin/ksh\n"
-			+ "nuucp:*:6:5:uucp login user:/var/spool/uucppublic:/usr/sbin/uucp/uucico\n"
-			+ "paul:!:201:1::/home/paul:/usr/bin/ksh\n" + "jdoe:*:202:1:John Doe:/home/jdoe:/usr/bin/ksh";
+	/**
+	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
+	 *      response)
+	 */
+	protected void doGet(HttpServletRequest request,
+			HttpServletResponse response) throws ServletException, IOException {
+		long ct = System.currentTimeMillis();
+		if (request != null)
+			request.setCharacterEncoding("UTF-8");
+		response.setContentType("text/html; charset=UTF-8");
+		response.setCharacterEncoding("UTF-8");
 
-	@Override
-	public boolean detect(String input) {
-		for (String str : PT) {
-			if (input.contains(str) && input.contains("passwd")) {
-				return true;
+		PrintWriter out = response.getWriter();
+				
+		// preprocess data into a more usable form
+		detected = false;
+		Map<String, String> data = preprocess(request);
+		Map<String, String> newData = new HashMap<String, String>();
+		for (Map.Entry<String, String> ent : data.entrySet()) {
+			for(int i=0;i<rules.size();i++){
+				// should we use or ignore this rule?
+				if(activatedRule(i,request.getRemoteAddr())){
+					Rule r = rules.get(i);
+					// attack detected, stop now
+					if(r.detect(ent.getValue())){
+						detected = true;
+						newData.put(ent.getKey(), r.generateResponse(ent.getValue()));
+						break;
+					}
+				}
 			}
 		}
-		return false;
+		out.println("post processing<br/>");
+		for (Map.Entry<String, String> ent : newData.entrySet()) {
+			out.println(ent.getKey() + " " + ent.getValue());
+			out.println("<br/>");
+		}
+		// log if we found an attacker
+		if(detected){
+			System.out.println("detected");
+			logRequest(request,ct);
+		}
 	}
 
-	@Override
-	public String generateResponse(String input) {
-		return passwd+passwd+passwd+passwd+passwd+passwd;
+	/**
+	 * generates the initial activation grid according to number
+	 * of exploit detection rules loaded.
+	 * 
+	 * number of possible exploit combinations is:
+	 *     (number of exploits)! - 1
+	 * as we are not interested in case where all exploits ignored
+	 */
+	private void activate(){
+		// calculate number of valid combos
+		int validCombos = 1;
+		for(int i=rules.size();i>0;i--){
+			validCombos = validCombos*2;
+		}
+		// generate activation array
+		activation = new boolean[validCombos][rules.size()];
+		
+		for(int i=1;i<validCombos;i++){
+			// convert combo key to binary
+			// ex. 7 => 111
+			String booleanRep = Integer.toBinaryString(i);
+			// pad boolean representation with 0's if required
+			if(booleanRep.length()<rules.size()){
+				booleanRep = String.format("%"+(rules.size()-booleanRep.length())+"s"," ")+booleanRep;
+			}
+			// input boolean representation into array
+			for(int j=booleanRep.length()-1;j>=0;j--){
+				if(booleanRep.charAt(j)=='1')
+					activation[i-1][j] = true;
+				else
+					activation[i-1][j] = false;
+			}
+		}
+	}
+	
+	/**
+	 * Determines if a given rule should be activated or not given
+	 *	the atttacking ip address and the rule's key(number in
+	 *	rules list)
+	 */
+	private boolean activatedRule(int ruleKey, String ip){
+		// convert ip address into single long
+		System.out.println(ip);
+		long realip = Long.parseLong(ip.replace(".",""));
+		// calculate remainder
+		int rm = (int) (realip%activation.length);
+		return activation[rm][ruleKey];
+	}
+	
+	/**
+	 * Records an attack attempt in logging system for future 
+	 * analysis
+	 */
+	private void logRequest(HttpServletRequest request, long time) throws IOException {
+		// add entry in log
+		File log = new File("D:/log.txt");
+		PrintWriter logwriter = new PrintWriter(log);
+		logwriter.println(Date.from(Instant.ofEpochMilli(time))+" - ID : "+time+" - From: "+ request.getRemoteAddr());
+		// dump log of this request into logs folder
+		File f = new File("D:/logs/"+time+".request");
+		f.getParentFile().mkdirs();
+		f.createNewFile();
+		PrintWriter writer = new PrintWriter(f);
+		writer.println(Date.from(Instant.ofEpochMilli(time))+" - ID : "+time+" - From: "+ request.getRemoteAddr());
+		// dump headers
+		writer.println(request.getRequestURL()+request.getQueryString());
+	    Enumeration headerNames = request.getHeaderNames();
+	    System.out.println("Headers:");
+	    writer.println("Headers:");
+	    while(headerNames.hasMoreElements()) {
+	      String headerName = (String)headerNames.nextElement();
+	      writer.println(headerName+":"+ request.getHeader(headerName));
+	    }
+	    BufferedReader test = request.getReader();
+	    String l = test.readLine();
+	    writer.println("Body:");
+		while(l !=null){
+			writer.println(l);
+	    	l = test.readLine();
+	    }
+		logwriter.close();
+		writer.close();
 	}
 
-	public static void main(String[] args) {
-		System.out.println(new PT2Rule().detect("http://example.com/getUserProfile.jsp?item=../../../../etc/passwd"));
+
+	/**
+	 * Preprocess data by converting a request into a Map of 
+	 * request parameter name to request parameter value
+	 * this makes the data much easier to process later on
+	 */
+	private Map<String, String> preprocess(HttpServletRequest request) {
+		Enumeration<String> names = request.getParameterNames();
+		Map<String, String> data = new HashMap<String, String>();
+		// testing things
+		while (names.hasMoreElements()) {
+			String name = names.nextElement();
+			data.put(name, request.getParameter(name));
+		}
+		return data;
 	}
 
-	@Override
-	public boolean flowthrough() {
-		return false;
+
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
+	 *      response)
+	 */
+	protected void doPost(HttpServletRequest request,
+			HttpServletResponse response) throws ServletException, IOException {
+		// TODO Auto-generated method stub
+		doGet(request, response);
+	}
+
+	// tests things, doesnt do much other things
+	public static void main(String[] args) throws IOException {
+		// System.out.println(new HP().evaluateExploit("<hey im script>"));
+		// System.out.println(new HP().evaluateExploit("1+1"));
+		//System.out.println(new HP().detectCSRF("www.google.co.nz"));
+		File f = new File("logs/"+5+".request");
+		f.getParentFile().mkdirs();
+		f.createNewFile();
+		PrintWriter writer = new PrintWriter(f);
+		writer.println("test");
+		writer.close();
 	}
 }
